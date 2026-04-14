@@ -2,90 +2,96 @@ import sys
 import os
 from cx_Freeze import setup, Executable
 
-# 1. Определяем базовую платформу (Win32GUI убирает консоль при запуске)
-base = None
-if sys.platform == "win32":
-    base = "Win32GUI"
-
+# Определяем основную точку входа
 main_script = "app.py"
-ASSETS_FOLDER = "assets"
 
-# Путь к иконке для EXE файла
-# Убедитесь, что файл nn_logo.ico лежит в папке assets
-EXE_ICON = os.path.join(ASSETS_FOLDER, "new_logo.ico")
+# Путь к иконке для macOS (обязательно .icns!)
+ICON_PATH = "assets/icon.icns"
 
-
-def find_data_files():
-    """Собирает все файлы (настройки, картинки, папки) для сборки"""
+# Функция для сбора всех файлов и папок
+def collect_data_files():
     data_files = []
-
-    # --- Добавляем настройки ---
-    if os.path.exists("gui/settings.json"):
-        # Формат: (откуда_взять, куда_положить)
-        data_files.append(("gui/settings.json", "gui/settings.json"))
-
-    # --- Добавляем ВСЕ картинки из assets ---
-    if os.path.exists(ASSETS_FOLDER):
-        for root, dirs, files in os.walk(ASSETS_FOLDER):
+    
+    # Папка assets
+    if os.path.exists("assets"):
+        for root, dirs, files in os.walk("assets"):
             for file in files:
-                # Берем только изображения и иконки
-                if file.lower().endswith(('.png', '.jpg', '.jpeg', '.ico', '.gif', '.bmp')):
-                    source_path = os.path.join(root, file)
-                    # rel_path сохранит структуру подпапок внутри assets, если они есть
-                    rel_path = os.path.relpath(source_path, start='.')
-                    data_files.append((source_path, rel_path))
-
-    # --- Создаем структуру пустых папок data ---
-    data_folders = [
-        "data",
-        "data/tenders",
-        "data/organizations",
-        "data/templates"
-    ]
-
+                src = os.path.join(root, file)
+                dst = os.path.join("assets", os.path.relpath(src, "assets"))
+                data_files.append((src, dst))
+    
+    # Папка gui (для settings.json и других файлов)
+    if os.path.exists("gui"):
+        for root, dirs, files in os.walk("gui"):
+            for file in files:
+                if file.endswith('.json'):
+                    src = os.path.join(root, file)
+                    dst = os.path.join("gui", os.path.basename(file))
+                    data_files.append((src, dst))
+    
+    # Папка core (если есть json или другие данные)
+    if os.path.exists("core"):
+        for root, dirs, files in os.walk("core"):
+            for file in files:
+                if file.endswith('.json'):
+                    src = os.path.join(root, file)
+                    dst = os.path.join("core", os.path.basename(file))
+                    data_files.append((src, dst))
+    
+    # Папка data (создаём структуру)
+    data_folders = ["data", "data/tenders", "data/organizations", "data/templates"]
     for folder in data_folders:
-        if not os.path.exists(folder):
-            os.makedirs(folder, exist_ok=True)
-        # Чтобы папка попала в сборку, добавляем её саму
+        os.makedirs(folder, exist_ok=True)
         data_files.append((folder, folder))
-
+    
     return data_files
 
-
-# Опции сборки
+# Настройки сборки
 build_exe_options = {
     "packages": [
         "tkinter", "os", "sys", "json", "re", "threading",
         "logging", "shutil", "tempfile", "datetime", "uuid",
-        "zipfile", "lxml", "lxml.etree", "PIL", "docx",
-        "docx2pdf", "subprocess", "typing", "dataclasses"
+        "zipfile", "lxml", "lxml.etree", "PIL", "PIL.Image",
+        "docx", "docx2pdf", "subprocess", "typing"
     ],
     "excludes": [
         "unittest", "email", "http", "xmlrpc", "pydoc",
         "test", "tkinter.test", "numpy", "scipy", "matplotlib",
         "pandas", "pygame", "curses", "sqlite3"
     ],
-    "include_files": find_data_files(),
+    "include_files": collect_data_files(),
     "optimize": 2,
-    "include_msvcr": True,  # Добавляет необходимые библиотеки Microsoft C++
 }
 
-# Настройка самого запускаемого файла
+# Настройки для macOS бандла
+bdist_mac_options = {
+    "bundle_name": "AhoTender",
+    "iconfile": ICON_PATH if os.path.exists(ICON_PATH) else None,
+    "plist_items": [
+        ("CFBundleIdentifier", "com.yourcompany.ahotender"),
+        ("CFBundleVersion", "1.0.0"),
+        ("CFBundleShortVersionString", "1.0.0"),
+        ("NSHighResolutionCapable", True),
+    ],
+}
+
 executables = [
     Executable(
         main_script,
-        base=base,
-        target_name="AutoTender.exe",
-        # ВОТ ЗДЕСЬ УСТАНАВЛИВАЕТСЯ ИКОНКА EXE
-        icon=EXE_ICON if os.path.exists(EXE_ICON) else None,
+        base=None,  # на macOS не нужен Win32GUI
+        target_name="AhoTender",
+        icon=ICON_PATH if os.path.exists(ICON_PATH) else None,
         copyright="Copyright © 2026",
     )
 ]
 
 setup(
-    name="AutoTender",
+    name="AhoTender",
     version="1.0.0",
     description="Приложение для обработки тендерных документов",
-    options={"build_exe": build_exe_options},
+    options={
+        "build_exe": build_exe_options,
+        "bdist_mac": bdist_mac_options,
+    },
     executables=executables,
 )
