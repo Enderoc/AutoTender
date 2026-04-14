@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.8'
 
       - name: Install system dependencies
         run: |
@@ -32,9 +32,8 @@ jobs:
         run: |
           python setup.py bdist_mac
 
-      - name: Rename .app (remove .app extension if needed)
+      - name: Rename .app (if needed)
         run: |
-          # cx_Freeze создаёт папку с именем, проверим
           if [ -d "dist/AhoTender.app" ]; then
             echo "✅ .app found at dist/AhoTender.app"
           elif [ -d "dist/AhoTender" ]; then
@@ -48,25 +47,3 @@ jobs:
         with:
           name: AhoTender-macOS
           path: dist/*.app
-
-      - name: Create DMG (optional)
-        run: |
-          brew install create-dmg
-          create-dmg \
-            --volname "AhoTender" \
-            --window-pos 200 120 \
-            --window-size 800 400 \
-            --icon-size 100 \
-            --icon "AhoTender.app" 200 190 \
-            --hide-extension "AhoTender.app" \
-            --app-drop-link 600 185 \
-            "dist/AhoTender.dmg" \
-            "dist/AhoTender.app"
-        continue-on-error: true
-
-      - name: Upload DMG (if created)
-        uses: actions/upload-artifact@v4
-        with:
-          name: AhoTender-DMG
-          path: dist/*.dmg
-        continue-on-error: true
