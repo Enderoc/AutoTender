@@ -1,0 +1,72 @@
+name: Build AhoTender for macOS
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies
+        run: |
+          brew install libjpeg libpng freetype
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade setuptools wheel
+          pip install -r requirements.txt
+
+      - name: Build .app with cx_Freeze
+        run: |
+          python setup.py bdist_mac
+
+      - name: Rename .app (remove .app extension if needed)
+        run: |
+          # cx_Freeze создаёт папку с именем, проверим
+          if [ -d "dist/AhoTender.app" ]; then
+            echo "✅ .app found at dist/AhoTender.app"
+          elif [ -d "dist/AhoTender" ]; then
+            mv "dist/AhoTender" "dist/AhoTender.app"
+          else
+            ls -la dist/
+          fi
+
+      - name: Upload .app as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AhoTender-macOS
+          path: dist/*.app
+
+      - name: Create DMG (optional)
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "AhoTender" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --icon "AhoTender.app" 200 190 \
+            --hide-extension "AhoTender.app" \
+            --app-drop-link 600 185 \
+            "dist/AhoTender.dmg" \
+            "dist/AhoTender.app"
+        continue-on-error: true
+
+      - name: Upload DMG (if created)
+        uses: actions/upload-artifact@v4
+        with:
+          name: AhoTender-DMG
+          path: dist/*.dmg
+        continue-on-error: true
